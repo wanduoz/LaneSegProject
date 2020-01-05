@@ -1,6 +1,7 @@
 import cv2
 import torch
 import pandas as pd
+from tqdm import tqdm
 from torchvision import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -52,19 +53,22 @@ def batch_data_generator(csv_file, is_train=True, batch_size=4, image_size=(1024
 
 
 if __name__ == '__main__':
-    dataprocess = train_image_gen()
+    data_batch = batch_data_generator()
+    dataprocess = tqdm(data_batch)
     for batch_item in dataprocess:
         image, mask = batch_item['image'], batch_item['mask']
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
         # this is aimed that debug your new method
         print(image.size(),mask.size(),type(image))
-        # image = image.numpy()
-        # print(type(image))
-        # plt.imshow(np.transpose(image[0],(1,2,0)))
-        # plt.show()
-        # plt.imshow(mask[0])
-        # plt.show()
+        import numpy as np
+        import matplotlib.pyplot as plt
+        image = image.numpy()
+        print(type(image))
+        plt.imshow(np.transpose(image[0],(1,2,0)))
+        plt.show()
+        plt.imshow(mask[0])
+        plt.show()
 
 
 
