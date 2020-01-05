@@ -1,23 +1,54 @@
+import cv2
 import torch
-import config
-from tqdm import tqdm
+import pandas as pd
 from torchvision import transforms
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from utils.image_process import ScaleAug, CutOut, ToTensor
-from utils.image_process import LaneDataset, ImageAug, DeformAug
+from utils.label_process import encode_labels
+from utils.image_process import crop_resize_data
+from utils.image_process import ImageAug, DeformAug, ScaleAug, CutOut, ToTensor
 
+# 创建类。导入label预处理和image预处理函数。返回torch Dataset类
+class LaneDataset(Dataset):
+    def __init__(self, csv_file, image_size=(1024, 384), crop_offset=690, transform=None):
+        super(LaneDataset, self).__init__()
+        self.data = pd.read_csv(csv_file)
+        self.images = self.data["image"].values
+        self.labels = self.data["label"].values
+        self.image_size = image_size
+        self.crop_offset = crop_offset
+        self.transform = transform
 
-def train_image_gen(train_list, batch_size=4, image_size=(1024, 384), crop_offset=690):
-    # kwargs = {'num_workers': 4, 'pin_memory': True} if torch.cuda.is_available() else {}
-    # 不进行增广
-    training_dataset = LaneDataset(train_list, image_size, crop_offset, transform=transforms.Compose(ToTensor() ))
-    # 进行增广
-    # training_dataset = LaneDataset("train.csv", transform=transforms.Compose([ImageAug(), DeformAug(), ScaleAug(), CutOut(32,0.5), ToTensor()]))
+    def __len__(self):
+        return self.labels.shape[0]
 
-    training_data_batch = DataLoader(training_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    dataprocess = tqdm(training_data_batch)
-    # 返回DataLoader对象
-    return dataprocess
+    def __getitem__(self, idx):
+
+        ori_image = cv2.imread(self.images[idx]) # 3维HWC
+        ori_mask = cv2.imread(self.labels[idx], cv2.IMREAD_GRAYSCALE) # 2维HW
+        train_img, train_mask = crop_resize_data(ori_image, ori_mask, self.image_size, self.crop_offset)
+        # Encode
+        train_mask = encode_labels(train_mask)
+        sample = [train_img.copy(), train_mask.copy()]
+        if self.transform:
+            sample = self.transform(sample)
+        return sample
+
+# 返回batchdata的generator
+def batch_data_generator(csv_file, is_train=True, batch_size=4, image_size=(1024, 384), crop_offset=690):
+    kwargs = {'num_workers': 4, 'pin_memory': True} if torch.cuda.is_available() else {}
+    #TODO 对于增广的参数，待调整输入值
+    if is_train:
+        # 进行增广
+        dataset = LaneDataset(csv_file, transform=transforms.Compose([ImageAug(), DeformAug(), ScaleAug(), CutOut(32, 0.5), ToTensor()]))
+        data_batch = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True, **kwargs)
+    else:
+        # 不进行增广
+        dataset = LaneDataset(csv_file, image_size, crop_offset, transform=transforms.Compose(ToTensor() ))
+        data_batch = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=False, **kwargs)
+
+    return data_batch
+
 
 
 if __name__ == '__main__':

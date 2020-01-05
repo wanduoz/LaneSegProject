@@ -1,39 +1,10 @@
-import os
 import cv2
 import random
 import torch
 import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset
 from imgaug import augmenters as iaa
-from utils.label_process import encode_labels, decode_labels, decode_color_labels
+from utils.label_process import decode_labels, decode_color_labels
 
-#
-class LaneDataset(Dataset):
-
-    def __init__(self, csv_file, image_size=(1024, 384), crop_offset=690, transform=None):
-        super(LaneDataset, self).__init__()
-        self.data = pd.read_csv(csv_file)
-        self.images = self.data["image"].values
-        self.labels = self.data["label"].values
-        self.image_size = image_size
-        self.crop_offset = crop_offset
-        self.transform = transform
-
-    def __len__(self):
-        return self.labels.shape[0]
-
-    def __getitem__(self, idx):
-
-        ori_image = cv2.imread(self.images[idx]) # 3维HWC
-        ori_mask = cv2.imread(self.labels[idx], cv2.IMREAD_GRAYSCALE) # 2维HW
-        train_img, train_mask = crop_resize_data(ori_image, ori_mask, self.image_size, self.crop_offset)
-        # Encode
-        train_mask = encode_labels(train_mask)
-        sample = [train_img.copy(), train_mask.copy()]
-        if self.transform:
-            sample = self.transform(sample)
-        return sample
 
 # 裁剪上部分无用区域
 def crop_resize_data(image, label=None, image_size=(1024, 384), offset=690):

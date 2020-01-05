@@ -1,130 +1,117 @@
 
 import os
-import time
-import config
-import numpy as np
 import torch
+import config
+import argparse
+from tqdm import tqdm
 import torch.nn.functional as F
 from models.deeplabv3p import deeplabv3p
-from utils.data_feeder import train_image_gen
+from utils.loss import CrossEntropyLoss, mean_iou
+from utils.data_feeder import batch_data_generator
 
-# 计算Mean Iou。输入pred维度是N*H*W,num_class, Label是N*H*W, 1
-def mean_iou(pred, label, num_classes=8):
-    pred = torch.argmax(pred, axis=1) #输入pred维度： N*H*W, Num_class
-    pred = pred.int()
-    label = label.int()
-    miou, wrong, correct = fluid.layers.mean_iou(pred, label, num_classes)
-    return miou
+# 训练一个epoch的函数
+def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
+    model.train()
+    total_mask_loss = 0.0
+    dataprocess = tqdm(dataLoader)
+    for batch_item in dataprocess:
+        image, mask = batch_item['image'], batch_item['mask']
+        if torch.cuda.is_available():
+            image, mask = image.cuda(), mask.cuda()
+        optimizer.zero_grad()
+        out = model(image) # N, NUM_CLS, H, W
+        mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
+        total_mask_loss += mask_loss.item()
+        mask_loss.backward()
+        optimizer.step()
+        dataprocess.set_description_str("epoch:{}".format(epoch))
+        dataprocess.set_postfix_str("mask_loss:{:.4f}".format(mask_loss.item()))
 
-# 计算损失
-no_grad_set = []
-def create_loss(predict, label, num_classes):
-    predict = predict.permute(0, 2, 3, 1) # predict结果维度是NCHW，由NCHW转化为NHWC，用于reshape
-    predict = torch.reshape(predict,[-1, num_classes])
-    predict = F.softmax(predict,dim=1)
-    label = label.view(-1, 1) # label读取结果是 NCHW但是C是1，所以不转化
-    # BCE with DICE
-    bce_loss = F.cross_entropy(predict, label)
-    # dice_loss = fluid.layers.dice_loss(predict, label)
-    no_grad_set.append(label.name)
-    loss = bce_loss + dice_loss
-    miou = mean_iou(predict, label, num_classes)
-    return fluid.layers.reduce_mean(loss), miou
+    trainLog.write("Epoch:{:04d}, mask loss is {:.4f} \n".format(epoch, total_mask_loss/len(dataLoader)))
+    trainLog.flush()
 
-def create_network(train_image, train_label, classes, network='deeplabv3p', image_size=(1024, 384), for_test=False):
-    if network == 'deeplabv3p':
-        predict = deeplabv3p(train_image, classes)
+
+# 验证一个epoch的函数
+def val_epoch(model, epoch, dataLoader, valLog):
+    model.eval()
+    total_mask_loss = 0.0
+    dataprocess = tqdm(dataLoader)
+    result = {"TP":{i:0 for i in range(config.num_classes)}, "TA":{i:0 for i in range(config.num_classes)}}
+    for batch_item in dataprocess:
+        image, mask = batch_item['image'], batch_item['mask']
+        if torch.cuda.is_available():
+            image, mask = image.cuda(), mask.cuda()
+        out = model(image)
+        mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
+        total_mask_loss += mask_loss.detach().item()
+        predict = torch.argmax(F.softmax(out,dim=1), dim=1) # N C H W降到 N H W
+        result = mean_iou(predict, mask, result)
+        dataprocess.set_description_str("epoch:{}".format(epoch))
+        dataprocess.set_postfix_str("mask loss:{:.4f}".format(mask_loss))
+
+    valLog.write("Epoch:{}".format(epoch))
+    for i in range(config.num_classes):
+        result_string = "{}: {:.4f} \n".format(i, result["TP"]/result["TA"])
+        valLog.write(result_string)
+
+    valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss/len(dataLoader)))
+    valLog.flush()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='LaneSeg input parameters')
+    # batch_size
+    parser.add_argument('-bs','--batchsize',default=4,type=int)
+    # netword
+    parser.add_argument('-n','--model',default='deeplabv3p',type=str)
+    # epoch
+    parser.add_argument('-e','--epoch',default=10,type=int)
+    # return
+    args = parser.parse_args()
+    return args
+
+
+def main(args):
+
+    # 地址与记录loss的文件
+    save_model_path = os.path.join(config.save_model_path, args.model)
+    trainLog= open(os.path.join(save_model_path,'train.log'), 'w')
+    valLog = open(os.path.join(save_model_path,'val.log'), 'w')
+
+    # 获取batch data的generator
+    train_data_batch = batch_data_generator(config.train_list_dir,
+                                            is_train=True,
+                                            batch_size=args.batchsize,
+                                            image_size=config.IMG_SIZE,
+                                            crop_offset=config.crop_offset)
+    val_data_batch = batch_data_generator(config.val_list_dir,
+                                          is_train=False,
+                                          batch_size=args.batchsize,
+                                          image_size=config.IMG_SIZE,
+                                          crop_offset=config.crop_offset)
+
+    # model
+    if args.model == 'deeplabv3p':
+        model = deeplabv3p(config.num_classes)
     else:
-        raise Exception('Not support this model:', network)
-    print('The program will run', network)
+        raise Exception("model {} is not supported".format(args.model))
 
-    if for_test == False:
-        loss, miou = create_loss(predict, train_label, classes)
-        return loss, miou, predict
-    elif for_test == True:
-        return predict
-    else:
-        raise Exception('Wrong Status:', for_test)
+    if torch.cuda.is_available():
+        model = model.cuda()
 
-# The main method
-def main():
-    IMG_SIZE =[1536, 512]
-    SUBMISSION_SIZE = [3384, 1710]
-    add_num = 13
-    batch_size = 2
-    log_iters = 100
-    base_lr = 0.0006
-    num_classes = 8
-    save_model_iters = 2000
-    network = 'deeplabv3p'
-    save_model_path = os.path.join(config.save_model_path, network)
-    use_pretrained = True
-    epoches = 2
-    crop_offset = 690
-    train_list = config.train_list_dir
+    # optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
 
-
-    iter_id = 0
-    total_loss = 0.0
-    total_miou = 0.0
-    prev_time = time.time()
-
-
-    train_reader = train_image_gen(train_list, batch_size, IMG_SIZE, crop_offset)
-    # Create model and define optimizer
-    reduced_loss, miou, pred = create_network(images, labels, num_classes, network=network, image_size=(IMG_SIZE[1], IMG_SIZE[0]), for_test=False)
-    optimizer = fluid.optimizer.AdamOptimizer(learning_rate=base_lr)
-    optimizer.minimize(reduced_loss, no_grad_set=no_grad_set)
-
-    # Whether load pretrained model
-    place = fluid.CUDAPlace(0)
-    exe = fluid.Executor(place)
-    exe.run(fluid.default_startup_program())
-    if use_pretrained == True:
-        fluid.io.load_params(exe, model_path)
-        print("loaded model from: %s" % model_path)
-    else:
-        print("Train from initialized model.")
-
-    # Parallel Executor to use multi-GPUs
-    exec_strategy = fluid.ExecutionStrategy()
-    exec_strategy.allow_op_delay = True
-    build_strategy = fluid.BuildStrategy()
-    build_strategy.reduce_strategy = fluid.BuildStrategy.ReduceStrategy.Reduce
-    train_exe = fluid.ParallelExecutor(use_cuda=True, loss_name=reduced_loss.name,
-                                       build_strategy=build_strategy, exec_strategy=exec_strategy)
-
-    # Training
-    for epoch in range(epoches):
-        print('Start Training Epoch: %d'%(epoch + 1))
-        train_length = len(train_list)
-        for iteration in range(int(train_length / batch_size)):
-            train_data = next(train_reader)
-            results = train_exe.run(
-                feed=get_feeder_data(train_data, place),
-                fetch_list=[reduced_loss.name, miou.name])
-            iter_id += 1
-            total_loss += np.mean(results[0])
-            total_miou += np.mean(results[1])
-
-            if iter_id % log_iters == 0: # Print log
-                end_time = time.time()
-                print(
-                "Iter - %d: train loss: %.3f, mean iou: %.3f, time cost: %.3f s"
-                % (iter_id, total_loss / log_iters, total_miou / log_iters, end_time - prev_time))
-                total_loss = 0.0
-                total_miou = 0.0
-                prev_time = time.time()
-
-            if iter_id % save_model_iters == 0: # save model
-                dir_name =save_model_path + str(epoch + add_num) + '_' + str(iter_id)
-                fluid.io.save_params(exe, dirname=dir_name)
-                print("Saved checkpoint: %s" % (dir_name))
-        iter_id = 0
-        dir_name = save_model_path + str(epoch + add_num) + '_end'
-        fluid.io.save_params(exe, dirname=dir_name)
-        print("Saved checkpoint: %s" % (dir_name))
+    for epoch in range(args.epoch):
+        train_epoch(model, epoch, train_data_batch, optimizer, trainLog, save_model_path, )
+        val_epoch(model, epoch, val_data_batch, valLog)
+        if epoch % 10 == 0:
+            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth".format(epoch) ) )
+    trainLog.close()
+    valLog.close()
+    torch.save(model, os.path.join(save_model_path, "model_Last.pth" ) )
 
 # Main
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)
