@@ -14,19 +14,19 @@ class LaneDataset(Dataset):
     def __init__(self, csv_file, image_size=(1024, 384), crop_offset=690, transform=None):
         super(LaneDataset, self).__init__()
         self.data = pd.read_csv(csv_file)
-        self.images = self.data["image"].values
-        self.labels = self.data["label"].values
+        self.image = self.data["image"].values
+        self.label = self.data["label"].values
         self.image_size = image_size
         self.crop_offset = crop_offset
         self.transform = transform
 
     def __len__(self):
-        return self.labels.shape[0]
+        return self.label.shape[0]
 
     def __getitem__(self, idx):
 
-        ori_image = cv2.imread(self.images[idx]) # 3维HWC
-        ori_mask = cv2.imread(self.labels[idx], cv2.IMREAD_GRAYSCALE) # 2维HW
+        ori_image = cv2.imread(self.image[idx]) # 3维HWC
+        ori_mask = cv2.imread(self.label[idx], cv2.IMREAD_GRAYSCALE) # 2维HW
         train_img, train_mask = crop_resize_data(ori_image, ori_mask, self.image_size, self.crop_offset)
         # Encode
         train_mask = encode_labels(train_mask)
@@ -63,12 +63,14 @@ if __name__ == '__main__':
         print(image.size(),mask.size(),type(image))
         import numpy as np
         import matplotlib.pyplot as plt
-        image = image.numpy()
+        image = image.cpu().numpy()
         print(type(image))
         plt.imshow(np.transpose(image[0],(1,2,0)))
         plt.show()
-        plt.imshow(mask[0])
+        mask = mask.cpu().numpy()
+        plt.imshow(mask[0],cmap='gray_r')
         plt.show()
+        break
 
 
 
