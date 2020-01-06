@@ -16,6 +16,7 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
     dataprocess = tqdm(dataLoader)
     for batch_item in dataprocess:
         image, mask = batch_item['image'], batch_item['mask']
+        image = image.type(torch.FloatTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
         optimizer.zero_grad()
@@ -39,6 +40,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
     result = {"TP":{i:0 for i in range(config.num_classes)}, "TA":{i:0 for i in range(config.num_classes)}}
     for batch_item in dataprocess:
         image, mask = batch_item['image'], batch_item['mask']
+        image = image.type(torch.FloatTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
         out = model(image)

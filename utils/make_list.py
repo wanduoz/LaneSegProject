@@ -59,3 +59,6 @@ def make_csv():
     train_dataset.to_csv(config.train_list_dir, index=False)
     val_dataset.to_csv(config.val_list_dir, index=False)
     test_dataset.to_csv(config.test_list_dir, index=False)
+
+if __name__ == "__main__":
+    make_csv()
