@@ -21,6 +21,10 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
             image, mask = image.cuda(), mask.cuda()
         optimizer.zero_grad()
         out = model(image) # N, NUM_CLS, H, W
+        """
+        out shape torch.Size([4, 8, 384, 1024]) mask.shape torch.Size([4, 384, 1024]) 
+        out type torch.float32 mask type torch.int64
+        """
         mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
         total_mask_loss += mask_loss.item()
         mask_loss.backward()
@@ -63,20 +67,28 @@ def val_epoch(model, epoch, dataLoader, valLog):
 def parse_args():
     parser = argparse.ArgumentParser(description='LaneSeg input parameters')
     # batch_size
-    parser.add_argument('-bs','--batchsize',default=4,type=int)
+    parser.add_argument('-b','--batchsize',default=4,type=int)
     # netword
     parser.add_argument('-n','--model',default='deeplabv3p',type=str)
     # epoch
-    parser.add_argument('-e','--epoch',default=10,type=int)
+    parser.add_argument('-e','--epoch',default=20,type=int)
+    # cuda
+    parser.add_argument('-c', '--cuda', default="0", type=str)
     # return
     args = parser.parse_args()
-    return args
+    return argsstr
 
 
 def main(args):
 
+    # 设置cuda
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
+
     # 地址与记录loss的文件
     save_model_path = os.path.join(config.save_model_path, args.model)
+    if not os.path.exists(save_model_path):
+        os.makedirs(save_model_path)
+
     trainLog= open(os.path.join(save_model_path,'train.log'), 'w')
     valLog = open(os.path.join(save_model_path,'val.log'), 'w')
 
@@ -105,7 +117,7 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
 
     for epoch in range(args.epoch):
-        train_epoch(model, epoch, train_data_batch, optimizer, trainLog, save_model_path, )
+        train_epoch(model, epoch, train_data_batch, optimizer, trainLog )
         val_epoch(model, epoch, val_data_batch, valLog)
         if epoch % 10 == 0:
             torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth".format(epoch) ) )

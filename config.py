@@ -7,7 +7,7 @@ train_list_dir = '/root/private/data/train.csv'
 val_list_dir = '/root/private/data/val.csv'
 test_list_dir = '/root/private/data/test.csv'
 
-save_model_path = '/root/private/LaneSegProject/model'
+save_model_path = '/root/private/project_1/model'
 
 
 num_classes = 8

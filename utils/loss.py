@@ -7,6 +7,7 @@ import numpy as np
 # predict由模型产出的Tensor，label由cv读取灰度图片并转化为Tensor
 # predict:维度NCHW。先转化NHWC在变成N*H*W, C； label维度NHW，直接转成N*H*W, 1
 def CrossEntropyLoss(predict, label, num_classes):
+    predict = torch.argmax(predict, dim=1)
     predict = predict.permute(0, 2, 3, 1) # predict结果维度是NCHW，由NCHW转化为NHWC，用于reshape
     predict = torch.reshape(predict.contiguous(),[-1, num_classes])
     label = label.contiguous().view([-1, 1])
