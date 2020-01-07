@@ -17,6 +17,7 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
     for batch_item in dataprocess:
         image, mask = batch_item['image'], batch_item['mask']
         image = image.type(torch.FloatTensor)
+        mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
         optimizer.zero_grad()
@@ -45,6 +46,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
     for batch_item in dataprocess:
         image, mask = batch_item['image'], batch_item['mask']
         image = image.type(torch.FloatTensor)
+        mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
         out = model(image)
@@ -76,7 +78,7 @@ def parse_args():
     parser.add_argument('-c', '--cuda', default="0", type=str)
     # return
     args = parser.parse_args()
-    return argsstr
+    return args
 
 
 def main(args):
