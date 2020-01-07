@@ -22,10 +22,6 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
             image, mask = image.cuda(), mask.cuda()
         optimizer.zero_grad()
         out = model(image) # N, NUM_CLS, H, W
-        """
-        out shape torch.Size([4, 8, 384, 1024]) mask.shape torch.Size([4, 384, 1024]) 
-        out type torch.float32 mask type torch.int64
-        """
         mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
         total_mask_loss += mask_loss.item()
         mask_loss.backward()
@@ -73,18 +69,13 @@ def parse_args():
     # netword
     parser.add_argument('-n','--model',default='deeplabv3p',type=str)
     # epoch
-    parser.add_argument('-e','--epoch',default=20,type=int)
-    # cuda
-    parser.add_argument('-c', '--cuda', default="0", type=str)
+    parser.add_argument('-e','--epoch',default=21,type=int)
     # return
     args = parser.parse_args()
     return args
 
 
 def main(args):
-
-    # 设置cuda
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
 
     # 地址与记录loss的文件
     save_model_path = os.path.join(config.save_model_path, args.model)

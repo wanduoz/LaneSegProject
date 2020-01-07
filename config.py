@@ -16,7 +16,7 @@ base_lr =  6.0e-4
 weight_decay = 1.0e-4
 crop_offset = 690
 save_model_iters = 2000
-IMG_SIZE = [1536, 512]
+IMG_SIZE = [1024, 384]
 SUBMISSION_SIZE = [3384, 1710]
 
 use_pretrained = True

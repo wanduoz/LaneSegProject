@@ -7,10 +7,9 @@ import numpy as np
 # predict由模型产出的Tensor，label由cv读取灰度图片并转化为Tensor
 # predict:维度NCHW。先转化NHWC在变成N*H*W, C； label维度NHW，直接转成N*H*W, 1
 def CrossEntropyLoss(predict, label, num_classes):
-    predict = torch.argmax(predict, dim=1)
     predict = predict.permute(0, 2, 3, 1) # predict结果维度是NCHW，由NCHW转化为NHWC，用于reshape
-    predict = torch.reshape(predict.contiguous(),[-1, num_classes])
-    label = label.contiguous().view([-1, 1])
+    predict = predict.contiguous().view(-1,num_classes)
+    label = label.contiguous().view(-1)
     loss = nn.CrossEntropyLoss(reduction='mean')(predict, label)
     return loss
 
@@ -33,8 +32,8 @@ def DiceLoss(predict, label, num_classes, smooth=1):
 # predict维度是N,H,W，label的维度是N,H,W
 # result用于记录一个epoch所有数据的总和。
 def mean_iou(predict, label, result):
-    predict = predict.numpy()
-    label = label.numpy()
+    predict = predict.cpu().numpy()
+    label = label.cpu().numpy()
     for i in range(len(result)):
         predict_class_i = predict==i
         label_class_i = label==i

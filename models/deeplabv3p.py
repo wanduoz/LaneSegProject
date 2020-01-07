@@ -33,7 +33,7 @@ class BasicConv2d(nn.Module):
         super(BasicConv2d, self).__init__()
         self.conv = conv2d(in_chans, out_chans, k, s, p, d, g)
         self.bn = nn.BatchNorm2d(out_chans)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
 
     def forward(self, x):
         return self.relu(self.bn(self.conv(x)))
@@ -54,7 +54,7 @@ class SeperableConv2d(nn.Module):
 class SepConvBlock(nn.Module):
     def __init__(self, in_chans, out_chans, k=1, s=1, p='same', d=1):
         super(SepConvBlock, self).__init__()
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=False)
         self.speconv = SeperableConv2d(in_chans, out_chans, k, s, p, d)
         self.bn = nn.BatchNorm2d(out_chans)
 
