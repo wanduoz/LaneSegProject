@@ -53,10 +53,13 @@ def val_epoch(model, epoch, dataLoader, valLog):
         dataprocess.set_description_str("epoch:{}".format(epoch))
         dataprocess.set_postfix_str("mask loss:{:.4f}".format(mask_loss))
 
-    valLog.write("Epoch:{}".format(epoch))
-    for i in range(config.num_classes):
-        result_string = "{}: {:.4f} \n".format(i, result["TP"]/result["TA"])
-        valLog.write(result_string)
+    miou_value = 0
+    for i in range(1, config.num_classes):
+        try:
+            miou_value += result["TP"][i]/result["TA"][i]
+        except:
+            miou_value += 0
+    valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value))
 
     valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss/len(dataLoader)))
     valLog.flush()
