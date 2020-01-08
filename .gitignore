@@ -15,4 +15,6 @@ __pycache__/
 # Model
 *model*/
 *.idea*/
-.idea/workspace.xml
+
+# python
+*py.swp
