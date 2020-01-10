@@ -1,6 +1,9 @@
 import os
 import pandas as pd
 from sklearn.utils import shuffle
+import sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 import config
 
 

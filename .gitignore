@@ -16,3 +16,8 @@ __pycache__/
 *model*/
 *.idea*/
 .idea/workspace.xml
+
+# idea
+.idea/
+.idea/LaneSegProject.iml
+

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import config
 
 #TODO 根据逻辑，统一predict和label的输入维度，免去每一次都转化维度的麻烦！！！参考代码中，维度
 
@@ -34,7 +35,7 @@ def DiceLoss(predict, label, num_classes, smooth=1):
 def mean_iou(predict, label, result):
     predict = predict.cpu().numpy()
     label = label.cpu().numpy()
-    for i in range(len(result)):
+    for i in range(config.num_classes):
         predict_class_i = predict==i
         label_class_i = label==i
         # 对于第i类，predict和label都是正的pixel

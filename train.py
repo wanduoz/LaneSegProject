@@ -53,13 +53,15 @@ def val_epoch(model, epoch, dataLoader, valLog):
         dataprocess.set_description_str("epoch:{}".format(epoch))
         dataprocess.set_postfix_str("mask loss:{:.4f}".format(mask_loss))
 
-    valLog.write("Epoch:{}".format(epoch))
+    miou_value = 0
     for i in range(config.num_classes):
-        result_string = "{}: {:.4f} \n".format(i, result["TP"]/result["TA"])
-        valLog.write(result_string)
-
-    valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss/len(dataLoader)))
+        result_string = "class: {}, {:.4f} {:.4f} \n".format(i, result["TP"][i], result["TA"][i])
+        print(result_string)
+        miou_value += result["TP"][i]/result["TA"][i]
+    valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value/config.num_classes))
+    valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss / len(dataLoader)))
     valLog.flush()
+
 
 
 def parse_args():
@@ -113,10 +115,10 @@ def main(args):
         train_epoch(model, epoch, train_data_batch, optimizer, trainLog )
         val_epoch(model, epoch, val_data_batch, valLog)
         if epoch % 10 == 0:
-            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth".format(epoch) ) )
+            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth.atr".format(epoch) ) )
     trainLog.close()
     valLog.close()
-    torch.save(model, os.path.join(save_model_path, "model_Last.pth" ) )
+    torch.save(model, os.path.join(save_model_path, "model_Last.pth.tar" ) )
 
 # Main
 if __name__ == "__main__":

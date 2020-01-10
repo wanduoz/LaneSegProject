@@ -57,9 +57,9 @@ def decode_color_labels(labels):
     decode_mask[1][labels == 2] = 0
     decode_mask[2][labels == 2] = 142
     # 3
-    decode_mask[0][labels == 3] = 220
-    decode_mask[1][labels == 3] = 220
-    decode_mask[2][labels == 3] = 0
+    decode_mask[0][labels == 3] = 153
+    decode_mask[1][labels == 3] = 153
+    decode_mask[2][labels == 3] = 153
     # 4
     decode_mask[0][labels == 4] = 128
     decode_mask[1][labels == 4] = 64
@@ -69,9 +69,9 @@ def decode_color_labels(labels):
     decode_mask[1][labels == 5] = 153
     decode_mask[2][labels == 5] = 153
     # 6
-    decode_mask[0][labels == 6] = 128
-    decode_mask[1][labels == 6] = 128
-    decode_mask[2][labels == 6] = 0
+    decode_mask[0][labels == 6] = 0
+    decode_mask[1][labels == 6] = 0
+    decode_mask[2][labels == 6] = 230
     # 7
     decode_mask[0][labels == 7] = 255
     decode_mask[1][labels == 7] = 128
