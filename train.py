@@ -45,11 +45,12 @@ def val_epoch(model, epoch, dataLoader, valLog):
         mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
-        out = model(image)
-        mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
-        total_mask_loss += mask_loss.detach().item()
-        predict = torch.argmax(F.softmax(out,dim=1), dim=1) # N C H W降到 N H W
-        result = mean_iou(predict, mask, result)
+        with torch.no_grad():
+            out = model(image)
+            mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
+            total_mask_loss += mask_loss.detach().item()
+            predict = torch.argmax(F.softmax(out,dim=1), dim=1) # N C H W降到 N H W
+            result = mean_iou(predict, mask, result)
         dataprocess.set_description_str("epoch:{}".format(epoch))
         dataprocess.set_postfix_str("mask loss:{:.4f}".format(mask_loss))
 

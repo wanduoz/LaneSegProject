@@ -45,7 +45,7 @@ def batch_data_generator(csv_file, is_train=True, batch_size=4, image_size=(1024
         data_batch = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True, **kwargs)
     else:
         # 不进行增广
-        dataset = LaneDataset(csv_file, image_size, crop_offset, transform=transforms.Compose(ToTensor() ))
+        dataset = LaneDataset(csv_file, image_size, crop_offset, transform=transforms.Compose([ToTensor()]))
         data_batch = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=False, **kwargs)
 
     return data_batch

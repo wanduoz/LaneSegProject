@@ -14,10 +14,10 @@ __pycache__/
 
 # Model
 *model*/
-*.idea*/
-.idea/workspace.xml
 
 # idea
 .idea/
-.idea/LaneSegProject.iml
 
+
+# python
+*py.swp
