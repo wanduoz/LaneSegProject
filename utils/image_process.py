@@ -7,7 +7,7 @@ from utils.label_process import decode_labels, decode_color_labels
 
 
 # 裁剪上部分无用区域
-def crop_resize_data(image, label=None, image_size=(1024, 384), offset=690):
+def crop_resize_data(image, label=None, image_size=(256, 96), offset=690):
 
     roi_image = image[offset:, :] # cv2读取图片维度 hwc
     if label is not None:
@@ -91,6 +91,7 @@ class CutOut(object):
         xmin, ymin, xmax, ymax = max(0, xmin), max(0, ymin), min(w, xmax), min(h, ymax)
         if np.random.uniform(0, 1) < self.p:
             image[ymin:ymax, xmin:xmax] = (0, 0, 0)
+            mask[ymin:ymax, xmin:xmax] = 0
         return image, mask
 
 

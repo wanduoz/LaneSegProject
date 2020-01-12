@@ -1,13 +1,16 @@
-
 import os
 import torch
 import config
 import argparse
+import pandas as pd
 from tqdm import tqdm
 import torch.nn.functional as F
 from models.deeplabv3p import deeplabv3p
 from utils.loss import CrossEntropyLoss, mean_iou
 from utils.data_feeder import batch_data_generator
+
+ce_loss_train = []
+ce_loss_val = []
 
 # 训练一个epoch的函数
 def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
@@ -24,6 +27,8 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
         out = model(image) # N, NUM_CLS, H, W
         mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
         total_mask_loss += mask_loss.item()
+        ce_loss_train.append(mask_loss.item())
+
         mask_loss.backward()
         optimizer.step()
         dataprocess.set_description_str("epoch:{}".format(epoch))
@@ -49,6 +54,8 @@ def val_epoch(model, epoch, dataLoader, valLog):
             out = model(image)
             mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
             total_mask_loss += mask_loss.detach().item()
+            ce_loss_val.append(mask_loss.detach().item())
+
             predict = torch.argmax(F.softmax(out,dim=1), dim=1) # N C H W降到 N H W
             result = mean_iou(predict, mask, result)
         dataprocess.set_description_str("epoch:{}".format(epoch))
@@ -113,13 +120,16 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
 
     for epoch in range(args.epoch):
-        train_epoch(model, epoch, train_data_batch, optimizer, trainLog )
+        train_epoch(model, epoch, train_data_batch, optimizer, trainLog)
         val_epoch(model, epoch, val_data_batch, valLog)
         if epoch % 10 == 0:
             torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth.atr".format(epoch) ) )
     trainLog.close()
     valLog.close()
     torch.save(model, os.path.join(save_model_path, "model_Last.pth.tar" ) )
+
+    pd.DataFrame(ce_loss_train,columns='loss').to_csv(os.path.join(save_model_path,'ce_loss_train.csv'))
+    pd.DataFrame(ce_loss_val, columns='loss').to_csv(os.path.join(save_model_path, 'ce_loss_val.csv'))
 
 # Main
 if __name__ == "__main__":

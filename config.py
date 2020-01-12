@@ -11,14 +11,10 @@ save_model_path = '/root/private/project_1/model'
 
 
 num_classes = 8
-log_iters = 100
 base_lr =  6.0e-4
 weight_decay = 1.0e-4
 crop_offset = 690
-save_model_iters = 2000
-<<<<<<< HEAD
+
 IMG_SIZE = (256,256)#(1024, 384)
 SUBMISSION_SIZE = [3384, 1710]
-
-use_pretrained = True
 
