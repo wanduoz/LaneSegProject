@@ -11,7 +11,7 @@ from utils.image_process import ImageAug, DeformAug, ScaleAug, CutOut, ToTensor
 
 # 创建类。导入label预处理和image预处理函数。返回torch Dataset类
 class LaneDataset(Dataset):
-    def __init__(self, csv_file, image_size=(1024, 384), crop_offset=690, transform=None):
+    def __init__(self, csv_file, image_size, crop_offset, transform):
         super(LaneDataset, self).__init__()
         self.data = pd.read_csv(csv_file)
         self.image = self.data["image"].values
@@ -27,7 +27,7 @@ class LaneDataset(Dataset):
 
         ori_image = cv2.imread(self.image[idx]) # 3维HWC
         ori_mask = cv2.imread(self.label[idx], cv2.IMREAD_GRAYSCALE) # 2维HW
-        train_img, train_mask = crop_resize_data(ori_image, ori_mask, self.image_size, self.crop_offset)
+        train_img, train_mask = crop_resize_data(ori_image, self.image_size, self.crop_offset, label=ori_mask)
         # Encode
         train_mask = encode_labels(train_mask)
         sample = [train_img.copy(), train_mask.copy()]
@@ -36,12 +36,14 @@ class LaneDataset(Dataset):
         return sample
 
 # 返回batchdata的generator
-def batch_data_generator(csv_file, is_train=True, batch_size=4, image_size=(256, 96), crop_offset=690):
+def batch_data_generator(csv_file, is_train, batch_size, image_size, crop_offset):
     kwargs = {'num_workers': 4, 'pin_memory': True} if torch.cuda.is_available() else {}
     #TODO 对于增广的参数，待调整输入值
     if is_train:
         # 进行增广
-        dataset = LaneDataset(csv_file, transform=transforms.Compose([ImageAug(), DeformAug(), ScaleAug(), CutOut(32, 0.5), ToTensor()]))
+        dataset = LaneDataset(csv_file, image_size, crop_offset,
+                              transform=transforms.Compose([
+                                  ImageAug(), DeformAug(), ScaleAug(), CutOut(32, 0.5), ToTensor()]))
         data_batch = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True, **kwargs)
     else:
         # 不进行增广

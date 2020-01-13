@@ -21,3 +21,4 @@ __pycache__/
 
 # python
 *py.swp
+.DS_Store

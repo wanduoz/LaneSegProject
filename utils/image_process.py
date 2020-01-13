@@ -7,7 +7,7 @@ from utils.label_process import decode_labels, decode_color_labels
 
 
 # 裁剪上部分无用区域
-def crop_resize_data(image, label=None, image_size=(256, 96), offset=690):
+def crop_resize_data(image, image_size, offset, label=None):
 
     roi_image = image[offset:, :] # cv2读取图片维度 hwc
     if label is not None:
