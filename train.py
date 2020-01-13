@@ -63,7 +63,8 @@ def val_epoch(model, epoch, dataLoader, valLog):
 
     miou_value = 0
     for i in range(config.num_classes):
-        result_string = "class: {}, {:.4f} {:.4f} \n".format(i, result["TP"][i], result["TA"][i])
+        result_string = "class: {}, {:.4f} {:.4f};  miou is: {:.4f}\n".format(i, result["TP"][i],
+                                                                              result["TA"][i], result["TP"][i]/result["TA"][i],)
         print(result_string)
         miou_value += result["TP"][i]/result["TA"][i]
     valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value/config.num_classes))
@@ -122,8 +123,8 @@ def main(args):
     for epoch in range(args.epoch):
         train_epoch(model, epoch, train_data_batch, optimizer, trainLog)
         val_epoch(model, epoch, val_data_batch, valLog)
-        if epoch % 10 == 0:
-            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth.atr".format(epoch) ) )
+        if epoch % 5 == 0:
+            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth.tar".format(epoch) ) )
     trainLog.close()
     valLog.close()
     torch.save(model, os.path.join(save_model_path, "model_Last.pth.tar" ) )
