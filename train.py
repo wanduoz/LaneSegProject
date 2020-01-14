@@ -9,6 +9,9 @@ from models.deeplabv3p import deeplabv3p
 from utils.loss import CrossEntropyLoss, mean_iou
 from utils.data_feeder import batch_data_generator
 
+# 双卡训练
+# device_list = [4,5]
+
 ce_loss_train = []
 ce_loss_val = []
 
@@ -23,6 +26,7 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
         mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
+            # image, mask = image.cuda(device=device_list[0]), mask.cuda(device=device_list[0])
         optimizer.zero_grad()
         out = model(image) # N, NUM_CLS, H, W
         mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
@@ -50,6 +54,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
         mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
             image, mask = image.cuda(), mask.cuda()
+            # image, mask = image.cuda(device=device_list[0]), mask.cuda(device=device_list[0])
         with torch.no_grad():
             out = model(image)
             mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
@@ -66,8 +71,9 @@ def val_epoch(model, epoch, dataLoader, valLog):
         result_string = "class: {}, {:.4f} {:.4f};  miou is: {:.4f}\n".format(i, result["TP"][i],
                                                                               result["TA"][i], result["TP"][i]/result["TA"][i],)
         print(result_string)
-        miou_value += result["TP"][i]/result["TA"][i]
-    valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value/config.num_classes))
+        if i!=0:
+            miou_value += result["TP"][i]/result["TA"][i]
+    valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value/(config.num_classes-1)))
     valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss / len(dataLoader)))
     valLog.flush()
 
@@ -116,6 +122,7 @@ def main(args):
 
     if torch.cuda.is_available():
         model = model.cuda()
+        # model = torch.nn.DataParallel(model, device_ids=device_list)
 
     # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
@@ -124,10 +131,10 @@ def main(args):
         train_epoch(model, epoch, train_data_batch, optimizer, trainLog)
         val_epoch(model, epoch, val_data_batch, valLog)
         if epoch % 5 == 0:
-            torch.save(model, os.path.join(save_model_path, "model_{:04d}.pth.tar".format(epoch) ) )
+            torch.save({'state_dict': model.state_dict()}, os.path.join(save_model_path, "model_{:04d}.pth.tar".format(epoch) ) )
     trainLog.close()
     valLog.close()
-    torch.save(model, os.path.join(save_model_path, "model_Last.pth.tar" ) )
+    torch.save({'state_dict': model.state_dict()}, os.path.join(save_model_path, "model_Last.pth.tar" ) )
 
     pd.DataFrame(ce_loss_train,columns='loss').to_csv(os.path.join(save_model_path,'ce_loss_train.csv'))
     pd.DataFrame(ce_loss_val, columns='loss').to_csv(os.path.join(save_model_path, 'ce_loss_val.csv'))

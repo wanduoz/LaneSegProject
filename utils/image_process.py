@@ -106,15 +106,15 @@ class ToTensor(object):
                 'mask': torch.from_numpy(mask.copy())}
 
 # 预测值扩充会原图大小
-def expand_resize_data(prediction=None, submission_size=(3384, 1710), offset=690):
+def expand_resize_data(prediction, submission_size, offset):
     pred_mask = decode_labels(prediction)
     expand_mask = cv2.resize(pred_mask, (submission_size[0], submission_size[1] - offset), interpolation=cv2.INTER_NEAREST)
     submission_mask = np.zeros((submission_size[1], submission_size[0]), dtype='uint8')
     submission_mask[offset:, :] = expand_mask
     return submission_mask
 
-
-def expand_resize_color_data(prediction=None, submission_size=(3384, 1710), offset=690):
+# prediction=None, submission_size=(3384, 1710), offset=690
+def expand_resize_color_data(prediction, submission_size, offset):
     color_pred_mask = decode_color_labels(prediction)
     color_pred_mask = np.transpose(color_pred_mask, (1, 2, 0))
     color_expand_mask = cv2.resize(color_pred_mask, (submission_size[0], submission_size[1] - offset), interpolation=cv2.INTER_NEAREST)

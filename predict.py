@@ -8,8 +8,6 @@ from utils.image_process import crop_resize_data
 from utils.label_process import decode_color_labels
 
 #os.environ["CUDA_VISIBLE_DEVICES"] = ""
-#for dvi in range(torch.cuda.device_count()):
-#    print(torch.cuda.get_device_name(dvi))
 
 device_id = 0
 # predict_net = 'deeplabv3p'
@@ -28,8 +26,11 @@ def load_model(model_path):
 
     #
     model_param = torch.load(model_path, map_location=map_location)
+
     # model_param = {k.replace('module.', ''):v for k, v in model_param.items()}
-    net.load_state_dict(model_param.state_dict())
+
+    # net.load_state_dict(model_param.state_dict())
+    net.load_state_dict(model_param)
     return net
 
 
