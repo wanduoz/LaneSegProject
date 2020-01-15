@@ -5,22 +5,23 @@ import numpy as np
 
 from .common import conv2d, BasicConv2d, SeperableConv2d, SepConvBlock, SepBlock
 
-
 class UNetConvBlock(nn.Module):
-    def __init__(self, in_size, out_size, padding, batch_norm):
+    def __init__(self, in_chans, out_chans):
         super(UNetConvBlock, self).__init__()
-        block = []
-        # conv -> relu -> bn
-        block.append(nn.Conv2d(in_size, out_size, kernel_size=3, padding=int(padding)))  # padding传入False或者int。当padding=False，int(padding)=0
-        block.append(nn.ReLU())
-        if batch_norm:
-            block.append(nn.BatchNorm2d(out_size))
 
-        # conv -> relu -> bn
-        block.append(nn.Conv2d(out_size, out_size, kernel_size=3, padding=int(padding)))
+        self.block = nn.ModuleList()
+
+        # 一个convBlock包含2个conv-bn-relu块
+        for i in range(2):
+            self.block.append(BasicConv2d())
+
+        block.append(nn.Conv2d(in_chans, out_chans, kernel_size=3, padding=1))
         block.append(nn.ReLU())
-        if batch_norm:
-            block.append(nn.BatchNorm2d(out_size))
+        block.append(nn.BatchNorm2d(out_chans))
+
+        block.append(nn.Conv2d(out_chans, out_chans, kernel_size=3, padding=1))
+        block.append(nn.ReLU())
+        block.append(nn.BatchNorm2d(out_chans))
 
         self.block = nn.Sequential(*block)
 
