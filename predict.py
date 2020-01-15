@@ -27,7 +27,7 @@ def load_model(model_path):
     #
     model_param = torch.load(model_path, map_location=map_location)
 
-    # model_param = {k.replace('module.', ''):v for k, v in model_param.items()}
+    model_param = {k.replace('module.', ''):v for k, v in model_param.items()}
 
     # net.load_state_dict(model_param.state_dict())
     net.load_state_dict(model_param)

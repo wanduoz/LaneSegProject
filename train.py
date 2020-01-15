@@ -9,8 +9,21 @@ from models.deeplabv3p import deeplabv3p
 from utils.loss import CrossEntropyLoss, mean_iou
 from utils.data_feeder import batch_data_generator
 
-# 双卡训练
-# device_list = [4,5]
+parser = argparse.ArgumentParser(description='LaneSeg input parameters')
+# batch_size
+parser.add_argument('-b', '--batchsize', default=4, type=int)
+# netword
+parser.add_argument('-n', '--model', default='deeplabv3p', type=str)
+# epoch
+parser.add_argument('-e', '--epoch', default=21, type=int)
+# cuda
+parser.add_argument('-c','--cuda', default="0",type=str)
+# return
+args = parser.parse_args()
+
+# 默认0。可以输入多个比如"0,1,2"
+os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
+print("use gpu: ", torch.cuda.device_count(), "GPUs!")
 
 ce_loss_train = []
 ce_loss_val = []
@@ -25,7 +38,7 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
         image = image.type(torch.FloatTensor)
         mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
-            image, mask = image.cuda(), mask.cuda()
+            image, mask = image.cuda(device='cuda:0'), mask.cuda(device='cuda:0')
             # image, mask = image.cuda(device=device_list[0]), mask.cuda(device=device_list[0])
         optimizer.zero_grad()
         out = model(image) # N, NUM_CLS, H, W
@@ -53,7 +66,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
         image = image.type(torch.FloatTensor)
         mask = mask.type(torch.LongTensor)
         if torch.cuda.is_available():
-            image, mask = image.cuda(), mask.cuda()
+            image, mask = image.cuda(device='cuda:0'), mask.cuda(device='cuda:0')
             # image, mask = image.cuda(device=device_list[0]), mask.cuda(device=device_list[0])
         with torch.no_grad():
             out = model(image)
@@ -77,22 +90,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
     valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss / len(dataLoader)))
     valLog.flush()
 
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='LaneSeg input parameters')
-    # batch_size
-    parser.add_argument('-b','--batchsize',default=4,type=int)
-    # netword
-    parser.add_argument('-n','--model',default='deeplabv3p',type=str)
-    # epoch
-    parser.add_argument('-e','--epoch',default=21,type=int)
-    # return
-    args = parser.parse_args()
-    return args
-
-
-def main(args):
+def main():
 
     # 地址与记录loss的文件
     save_model_path = os.path.join(config.save_model_path, args.model)
@@ -122,7 +120,8 @@ def main(args):
 
     if torch.cuda.is_available():
         model = model.cuda()
-        # model = torch.nn.DataParallel(model, device_ids=device_list)
+        if len(args.gpus.split(',')) > 1:
+            model = torch.nn.DataParallel(model)
 
     # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
@@ -141,5 +140,4 @@ def main(args):
 
 # Main
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    main()
