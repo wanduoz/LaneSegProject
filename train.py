@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 # 默认0。可以输入多个比如"0,1,2"
 os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
-print("use gpu: ", torch.cuda.device_count(), "GPUs!")
+print("use gpu: ", torch.cuda.device_count(), "GPUs!\t", "use_gpu: ",args.cuda)
 
 ce_loss_train = []
 ce_loss_val = []
