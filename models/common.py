@@ -21,7 +21,6 @@ def conv2d(in_chans, out_chans, k=1, s=1, p='same', d=1, g=1):
     p = getpadding(k, s, p, d)
     return nn.Conv2d(in_chans, out_chans, k, stride=s, padding=p, dilation=d, groups=g, bias=False)
 
-
 # 1.定义relu-bn-conv的基础block（默认p是same，这样调用的时候就自动计算pad）
 class BasicConv2d(nn.Module):
     def __init__(self, in_chans, out_chans, k=1, s=1, p='same', d=1, g=1):
@@ -33,7 +32,6 @@ class BasicConv2d(nn.Module):
     def forward(self, x):
         return self.relu(self.bn(self.conv(x)))
 
-
 # 2.建立可分离卷积，使用group conv=inchannel实现depth wise
 class SeperableConv2d(nn.Module):
     def __init__(self, in_chans, out_chans, k=1, s=1, p='same', d=1):
@@ -43,7 +41,6 @@ class SeperableConv2d(nn.Module):
 
     def forward(self, x):
         return self.pointwise(self.depthwise(x))
-
 
 # 3.建立可分离卷积的block。包括 relu，可分离卷积，bn.
 class SepConvBlock(nn.Module):
@@ -55,7 +52,6 @@ class SepConvBlock(nn.Module):
 
     def forward(self, x):
         return self.bn(self.speconv(self.relu(x)))
-
 
 # 3个sepconv为一个大块。用于entry flow 与 middle flow。传入的k和s是3的list
 class SepBlock(nn.Module):

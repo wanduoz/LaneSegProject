@@ -2,10 +2,7 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 from torch.nn import functional as F
-import numpy as np
-import os
-# os.environ['KMP_DUPLICATE_LIB_OK']='True'
-from .common import conv2d, BasicConv2d, SeperableConv2d, SepConvBlock, SepBlock
+from models.common import conv2d, BasicConv2d, SeperableConv2d, SepConvBlock, SepBlock
 
 # 1. Entry flow
 class EntryFlow(nn.Module):
@@ -26,7 +23,6 @@ class EntryFlow(nn.Module):
         x = self.downblock3(x)
         return x, short_cut
 
-
 # 2. Middle Flow
 class MiddleFlow(nn.Module):
     def __init__(self, repeat=16):
@@ -40,7 +36,6 @@ class MiddleFlow(nn.Module):
     def forward(self, x):
         x = self.layers(x)
         return x
-
 
 # 3. Exit Flow（用SepConvBlock）
 class ExitFlow(nn.Module):
@@ -81,7 +76,7 @@ class Xception(nn.Module):
         x = self.exit_flow(x)
         return x,shortcut
 
-
+# 池化，线性插值
 class ASPPPooling(nn.Sequential):
     def __init__(self, in_chans, out_chans):
         super(ASPPPooling, self).__init__(nn.AdaptiveAvgPool2d(1), BasicConv2d(in_chans, out_chans))
@@ -91,7 +86,6 @@ class ASPPPooling(nn.Sequential):
         for mod in self:
             x = mod(x)
         return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
-
 
 # encode层 ASPP out_chans参考paddle的数量
 class ASPP(nn.Module):
