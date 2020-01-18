@@ -18,3 +18,6 @@ crop_offset = 690
 IMG_SIZE = (256,256)#(1024, 384)
 SUBMISSION_SIZE = [3384, 1710]
 
+# 早停
+patience = 10
+epsilon = 1e-4

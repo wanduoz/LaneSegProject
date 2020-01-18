@@ -6,18 +6,22 @@ import pandas as pd
 from tqdm import tqdm
 import torch.nn.functional as F
 from models.deeplabv3p import deeplabv3p
+from models.UNet import UNet
 from utils.loss import CrossEntropyLoss, mean_iou
 from utils.data_feeder import batch_data_generator
+from utils.early_stop import EarlyStopping
 
 parser = argparse.ArgumentParser(description='LaneSeg input parameters')
 # batch_size
 parser.add_argument('-b', '--batchsize', default=4, type=int)
 # netword
-parser.add_argument('-n', '--model', default='deeplabv3p', type=str)
+parser.add_argument('-m', '--model', default='deeplabv3p', type=str)
 # epoch
 parser.add_argument('-e', '--epoch', default=21, type=int)
 # cuda
 parser.add_argument('-c','--cuda', default="0",type=str)
+# Unet backbone name (resnet18/resnet34/resnet50/resnet101/resnet152)
+parser.add_argument('-n', '--backbone', default="resnet18",type=str)
 # return
 args = parser.parse_args()
 
@@ -25,11 +29,13 @@ args = parser.parse_args()
 os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
 print("use gpu: ", torch.cuda.device_count(), "GPUs!\t", "use_gpu: ",args.cuda)
 
+# 记录每一个iteration下的loss（不是每一个epoch）
 ce_loss_train = []
 ce_loss_val = []
 
 # 训练一个epoch的函数
 def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
+
     model.train()
     total_mask_loss = 0.0
     dataprocess = tqdm(dataLoader)
@@ -43,6 +49,7 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
         optimizer.zero_grad()
         out = model(image) # N, NUM_CLS, H, W
         mask_loss = CrossEntropyLoss(out, mask, config.num_classes) # 返回tensor。不能返回标量，因为要backward
+
         total_mask_loss += mask_loss.item()
         ce_loss_train.append(mask_loss.item())
 
@@ -51,12 +58,16 @@ def train_epoch(model, epoch, dataLoader, optimizer, trainLog):
         dataprocess.set_description_str("epoch:{}".format(epoch))
         dataprocess.set_postfix_str("mask_loss:{:.4f}".format(mask_loss.item()))
 
-    trainLog.write("Epoch:{:04d}, mask loss is {:.4f} \n".format(epoch, total_mask_loss/len(dataLoader)))
+    curr_train_avg_loss = total_mask_loss/len(dataLoader)
+    trainLog.write("Epoch:{:04d}, mask loss is {:.4f} \n".format(epoch, curr_train_avg_loss))
     trainLog.flush()
+
+    return curr_train_avg_loss
 
 
 # 验证一个epoch的函数
 def val_epoch(model, epoch, dataLoader, valLog):
+
     model.eval()
     total_mask_loss = 0.0
     dataprocess = tqdm(dataLoader)
@@ -71,6 +82,7 @@ def val_epoch(model, epoch, dataLoader, valLog):
         with torch.no_grad():
             out = model(image)
             mask_loss = CrossEntropyLoss(out, mask, config.num_classes)
+
             total_mask_loss += mask_loss.detach().item()
             ce_loss_val.append(mask_loss.detach().item())
 
@@ -86,9 +98,13 @@ def val_epoch(model, epoch, dataLoader, valLog):
         print(result_string)
         if i!=0:
             miou_value += result["TP"][i]/result["TA"][i]
+
+    curr_val_avg_loss = total_mask_loss / len(dataLoader)
     valLog.write("Epoch:{}, miou is {:.4f} \n".format(epoch, miou_value/(config.num_classes-1)))
-    valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, total_mask_loss / len(dataLoader)))
+    valLog.write("Epoch:{}, mask loss is {:.4f} \n".format(epoch, curr_val_avg_loss))
     valLog.flush()
+
+    return curr_val_avg_loss
 
 def main():
 
@@ -112,11 +128,14 @@ def main():
                                           image_size=config.IMG_SIZE,
                                           crop_offset=config.crop_offset)
 
-    # model
+    # 定义模型model
     if args.model == 'deeplabv3p':
         model = deeplabv3p(config.num_classes)
+    elif args.model == 'unet':
+        model = UNet(args.name, config.num_classes)
     else:
         raise Exception("model {} is not supported".format(args.model))
+    print("use model: {}".format(args.model))
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -126,17 +145,30 @@ def main():
     # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=config.base_lr, weight_decay=config.weight_decay)
 
+    # 早停。save_model_path, patience, epsilon
+    early_stopping = EarlyStopping(save_model_path, config.patience, config.epsilon)
+
+    # 开始训练
+    # 每一个epoch，进行train，val，early_stop，判断是否需要早停。保存模型（每5epoch）
     for epoch in range(args.epoch):
-        train_epoch(model, epoch, train_data_batch, optimizer, trainLog)
-        val_epoch(model, epoch, val_data_batch, valLog)
+        train_loss = train_epoch(model, epoch, train_data_batch, optimizer, trainLog)
+        val_loss = val_epoch(model, epoch, val_data_batch, valLog)
+
         if epoch % 5 == 0:
             torch.save({'state_dict': model.state_dict()}, os.path.join(save_model_path, "model_{:04d}.pth.tar".format(epoch) ) )
+
+        # 打印当前batch的avg loss信息
+        early_stopping(val_loss, model, epoch)
+        if early_stopping.early_stop:
+            print("Early stopping")
+            break
+
     trainLog.close()
     valLog.close()
     torch.save({'state_dict': model.state_dict()}, os.path.join(save_model_path, "model_Last.pth.tar" ) )
 
-    pd.DataFrame(ce_loss_train,columns='loss').to_csv(os.path.join(save_model_path,'ce_loss_train.csv'))
-    pd.DataFrame(ce_loss_val, columns='loss').to_csv(os.path.join(save_model_path, 'ce_loss_val.csv'))
+    pd.DataFrame(ce_loss_train,columns=['loss']).to_csv(os.path.join(save_model_path,'ce_loss_train.csv'))
+    pd.DataFrame(ce_loss_val, columns=['loss']).to_csv(os.path.join(save_model_path, 'ce_loss_val.csv'))
 
 # Main
 if __name__ == "__main__":

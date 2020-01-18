@@ -15,8 +15,8 @@ class UNetConvBlock(nn.Module):
 
     def forward(self, x):
         for block in self.block:
-            out = block(x)
-        return out
+            x = block(x)
+        return x
 
 # 双线性插值对小feature mao上采样。裁剪bridge，concat，进行UNet两个conv的结构
 class UNetUpBlock(nn.Module):
@@ -45,7 +45,10 @@ class UNet(nn.Module):
     def __init__(self, name, num_class):
         super(UNet, self).__init__()
         self.encode = ResNet(name)
-        prev_channels = 2048
+        if name.endswith('18') or name.endswith('34'):
+            prev_channels = 512
+        else:
+            prev_channels =2048
         self.up_path = nn.ModuleList()
         for i in range(3):
             self.up_path.append(UNetUpBlock(prev_channels, prev_channels // 2))
