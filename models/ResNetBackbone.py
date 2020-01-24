@@ -48,6 +48,7 @@ class BottleBlock(nn.Module):
         #
         self.downsample = downsample
         self.stride = stride
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         identity = x

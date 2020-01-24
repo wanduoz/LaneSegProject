@@ -22,7 +22,7 @@ class EarlyStopping:
 
     def __call__(self, val_loss, model, epoch):
 
-        score = val_loss
+        score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
@@ -30,7 +30,7 @@ class EarlyStopping:
 
         elif score < self.best_score + self.epsilon:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            print(f'current Validation loss: {val_loss:.4f}, Best Validation loss{self.val_loss_min:.6f}... EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -42,9 +42,10 @@ class EarlyStopping:
         '''Saves model when validation loss decrease.'''
         print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         # 先删除原有的early stop保存
-        for i in os.listdir(self.save_model_path):
-            if i.startswith("early_stop"):
-                os.remove(i)
+        files = os.listdir(self.save_model_path)
+        for file in files:
+            if file.startswith("early_stop"):
+                os.remove(os.path.join(self.save_model_path, file))
         # 再保存新的early stop保存点
         torch.save({'state_dict': model.state_dict()}, os.path.join(self.save_model_path, "early_stop{:04d}.pth.tar".format(epoch)))
         self.val_loss_min = val_loss

@@ -37,7 +37,7 @@ class LaneDataset(Dataset):
 
 # 返回batchdata的generator
 def batch_data_generator(csv_file, is_train, batch_size, image_size, crop_offset):
-    kwargs = {'num_workers': 4, 'pin_memory': True} if torch.cuda.is_available() else {}
+    kwargs = {'num_workers': 0, 'pin_memory': True} if torch.cuda.is_available() else {}
     #TODO 对于增广的参数，待调整输入值
     if is_train:
         # 进行增广
